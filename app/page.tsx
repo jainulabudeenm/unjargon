@@ -205,6 +205,7 @@ export default function App() {
     setNewTerm({ category: "backend", name: "", analogy: "", description: "" });
   };
 
+  // --- THE NEW AUTO-CATEGORIZING AI LOGIC ---
   const handleAIGenerate = async () => {
     if (!newTerm.name) {
       alert("Please type a term name first! (e.g., 'Webhooks')");
@@ -214,24 +215,46 @@ export default function App() {
     setIsGenerating(true);
     
     try {
+      // 1. Grab our current categories to send to Gemini
+      const existingCategories = glossary.map(c => ({ id: c.id, title: c.title }));
+
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ term: newTerm.name }),
+        body: JSON.stringify({ term: newTerm.name, existingCategories }),
       });
 
       if (!response.ok) throw new Error("Failed to fetch from AI API");
       
       const data = await response.json();
+
+      // 2. Check if the AI invented a brand new category
+      const categoryExists = glossary.some(c => c.id === data.categoryId);
+
+      if (!categoryExists && data.categoryId && data.newCategoryTitle) {
+        // 3. Instantly inject the new category into our UI state!
+        const brandNewCategory = {
+          id: data.categoryId,
+          title: data.newCategoryTitle,
+          subtitle: "AI Generated",
+          icon: <Sparkles className="w-5 h-5" />, // Use the sparkles icon for AI categories
+          description: "A custom category created dynamically by AI.",
+          terms: []
+        };
+        setGlossary(prev => [...prev, brandNewCategory]);
+      }
       
+      // 4. Update the form fields, automatically switching the dropdown to the AI's choice!
       setNewTerm(prev => ({
         ...prev,
         analogy: data.analogy || "Could not generate analogy.",
-        description: data.description || "Could not generate description."
+        description: data.description || "Could not generate description.",
+        category: data.categoryId || prev.category
       }));
+
     } catch (error) {
       console.error(error);
-      alert("Oops! The AI connection failed. Make sure your GEMINI API key is in your .env.local file!");
+      alert("Oops! The AI connection failed. Check your terminal for details.");
     } finally {
       setIsGenerating(false);
     }
@@ -458,7 +481,7 @@ export default function App() {
                 <div className="flex gap-2">
                   <input 
                     className="flex-1 bg-white border border-neutral-300 p-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20" 
-                    placeholder="e.g. Serverless" 
+                    placeholder="e.g. Webhooks, Bitcoin..." 
                     value={newTerm.name} 
                     onChange={e => setNewTerm({...newTerm, name: e.target.value})} 
                   />
