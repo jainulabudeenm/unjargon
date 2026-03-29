@@ -1,26 +1,105 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* THE VOID (Dark) */
+  --background: oklch(0.01 0 0); 
+  --foreground: oklch(0.99 0 0); 
+  
+  /* Accessible Copper */
+  --primary: oklch(0.70 0.14 45); 
+  --primary-foreground: oklch(0.01 0 0);
+
+  --card: oklch(0.04 0 0); 
+  --muted: oklch(0.12 0 0);
+  --muted-foreground: oklch(0.70 0 0); 
+  --border: oklch(0.20 0 0); 
+  --radius: 0px; 
+  
+  /* Default mouse positions for the spotlight */
+  --mouse-x: 50%;
+  --mouse-y: 50%;
+}
+
+.light {
+  /* THE STUDIO (Light) */
+  --background: oklch(0.99 0.005 250); 
+  --foreground: oklch(0.12 0 0); 
+  --primary: oklch(0.55 0.18 45); 
+  --primary-foreground: oklch(1 0 0);
+  --card: oklch(1 0 0); 
+  --muted: oklch(0.95 0.01 250);
+  --muted-foreground: oklch(0.35 0 0);
+  --border: oklch(0.85 0 0); 
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-primary/30;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* 1. VAULT INTERACTIVE GRID (Drifts + Follows Mouse) */
+@keyframes grid-drift {
+  from { background-position: 0 0; }
+  to { background-position: 40px 40px; }
 }
+
+.interactive-grid {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1; /* Sits above base background but below solid cards */
+  background-image: 
+    linear-gradient(to right, oklch(0.70 0.14 45 / 0.15) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0.70 0.14 45 / 0.15) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.8;
+  animation: grid-drift 20s linear infinite;
+  
+  /* The Mouse Spotlight Mask */
+  mask-image: radial-gradient(
+    400px circle at var(--mouse-x) var(--mouse-y), 
+    black 10%, 
+    transparent 100%
+  );
+  -webkit-mask-image: radial-gradient(
+    400px circle at var(--mouse-x) var(--mouse-y), 
+    black 10%, 
+    transparent 100%
+  );
+}
+
+/* 2. COPPER ETCHED SCROLLBAR */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(0.70 0.14 45 / 0.2);
+  border: 1px solid oklch(0.70 0.14 45 / 0.1);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* 3. FLASHCARD 3D CORE */
+.perspective-1000 { perspective: 1000px; }
+.preserve-3d { transform-style: preserve-3d; }
+.backface-hidden { backface-visibility: hidden !important; transform: translateZ(0); }
