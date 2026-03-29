@@ -6,591 +6,214 @@ import {
   Search, BookOpen, Terminal, Code2, Layers, 
   Paintbrush, Database, Rocket, HelpCircle, 
   Hash, Box, FileText, Info, Plus, X, 
-  CreditCard, ArrowRight, ArrowLeft, Shuffle, Sparkles, Loader2, Trash2
+  CreditCard, ArrowRight, ArrowLeft, Shuffle, Sparkles, Loader2, Trash2,
+  Sun, Moon
 } from 'lucide-react';
 
-// 1. Initialize Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL || "", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "");
 
-// 2. The Hybrid "Anatomy" Categories
 const baseCategories = [
-  // --- THE PRODUCT (Front to Back) ---
-  {
-    id: "core-languages",
-    title: "1. The Core Languages",
-    subtitle: "(The DNA)",
-    icon: <Code2 className="w-5 h-5" />,
-    description: "The raw genetic makeup of the web. Everything eventually compiles down to these three.",
-    terms: [] as any[]
-  },
-  {
-    id: "styling",
-    title: "2. Styling & Quality",
-    subtitle: "(The Surface & Skin)",
-    icon: <Paintbrush className="w-5 h-5" />,
-    description: "Where design systems, typography, and spacing actually get applied to the screen.",
-    terms: [] as any[]
-  },
-  {
-    id: "building-blocks",
-    title: "3. Building Blocks",
-    subtitle: "(The Skeleton & Muscle)",
-    icon: <Layers className="w-5 h-5" />,
-    description: "The structural frameworks (like React) that connect UI components and make them interactive.",
-    terms: [] as any[]
-  },
-  {
-    id: "backend",
-    title: "4. The Backend",
-    subtitle: "(The Brains & Memory)",
-    icon: <Database className="w-5 h-5" />,
-    description: "The invisible layer. Where data, passwords, and logic live permanently in the cloud.",
-    terms: [] as any[]
-  },
-  
-  // --- THE ENVIRONMENT (The Workshop) ---
-  {
-    id: "workspace",
-    title: "5. The Workspace",
-    subtitle: "(The Desk)",
-    icon: <Terminal className="w-5 h-5" />,
-    description: "The actual software environments where developers sit and write code all day.",
-    terms: [] as any[]
-  },
-  {
-    id: "package-managers",
-    title: "6. Package Managers",
-    subtitle: "(The Supply Closet)",
-    icon: <Box className="w-5 h-5" />,
-    description: "The tools used to download pre-built plugins (like a calendar picker) into the workspace.",
-    terms: [] as any[]
-  },
-  {
-    id: "version-control",
-    title: "7. Version Control",
-    subtitle: "(The Time Machine)",
-    icon: <BookOpen className="w-5 h-5" />,
-    description: "How teams save history, collaborate safely, and avoid overwriting each other's work.",
-    terms: [] as any[]
-  },
-  
-  // --- THE FINAL MILE ---
-  {
-    id: "launching",
-    title: "8. Launching",
-    subtitle: "(The Delivery)",
-    icon: <Rocket className="w-5 h-5" />,
-    description: "Taking the code from a private laptop and deploying it to the public internet.",
-    terms: [] as any[]
-  },
-  {
-    id: "documentation",
-    title: "9. Documentation",
-    subtitle: "(The Handoff)",
-    icon: <FileText className="w-5 h-5" />,
-    description: "The written instructions, README files, and standards for the project.",
-    terms: [] as any[]
-  },
-  {
-    id: "faqs",
-    title: "10. FAQs",
-    subtitle: "The Big Mix-ups",
-    icon: <HelpCircle className="w-5 h-5" />,
-    description: "Clarifying the most common points of confusion.",
-    terms: [] as any[]
-  }
+  { id: "core-languages", title: "1. Core Languages", icon: <Code2 className="w-3.5 h-3.5" /> },
+  { id: "styling", title: "2. Styling & Quality", icon: <Paintbrush className="w-3.5 h-3.5" /> },
+  { id: "building-blocks", title: "3. Building Blocks", icon: <Layers className="w-3.5 h-3.5" /> },
+  { id: "backend", title: "4. The Backend", icon: <Database className="w-3.5 h-3.5" /> },
+  { id: "workspace", title: "5. The Workspace", icon: <Terminal className="w-3.5 h-3.5" /> },
+  { id: "package-managers", title: "6. Package Managers", icon: <Box className="w-3.5 h-3.5" /> },
+  { id: "version-control", title: "7. Version Control", icon: <BookOpen className="w-3.5 h-3.5" /> },
+  { id: "launching", title: "8. Launching", icon: <Rocket className="w-3.5 h-3.5" /> },
+  { id: "documentation", title: "9. Documentation", icon: <FileText className="w-3.5 h-3.5" /> },
+  { id: "faqs", title: "10. FAQs", icon: <HelpCircle className="w-3.5 h-3.5" /> }
 ];
 
 export default function App() {
-  const [glossary, setGlossary] = useState(baseCategories);
+  const [glossary, setGlossary] = useState(baseCategories.map(c => ({ ...c, terms: [] as any[] })));
   const [viewMode, setViewMode] = useState('dictionary'); 
-  
+  const [theme, setTheme] = useState('dark'); 
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState("the-blueprint");
+  const [activeCategory, setActiveCategory] = useState("core-languages");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
-  const [flashcardCategory, setFlashcardCategory] = useState('all');
-  
   const [isGenerating, setIsGenerating] = useState(false);
-  const [newTerm, setNewTerm] = useState({
-    category: "the-warehouse",
-    name: "",
-    analogy: "",
-    description: ""
-  });
+  const [newTerm, setNewTerm] = useState({ category: "core-languages", name: "", analogy: "", description: "" });
 
-  // 3. FETCH FROM SUPABASE ON LOAD
   useEffect(() => {
-    const fetchTerms = async () => {
-      const { data, error } = await supabase.from('terms').select('*');
-      
-      if (error) {
-        console.error("Error fetching from Supabase:", error);
-        return;
-      }
+    const root = window.document.documentElement;
+    theme === 'light' ? root.classList.add('light') : root.classList.remove('light');
+  }, [theme]);
 
-      if (data) {
-        setGlossary(baseCategories.map(cat => ({
-          ...cat,
-          terms: data.filter(t => t.category_id === cat.id).map(t => ({
-            id: t.id,
-            name: t.name,
-            analogy: t.analogy,
-            description: t.description
-          }))
-        })));
-      }
-    };
-
-    fetchTerms();
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase.from('terms').select('*');
+      if (data) setGlossary(baseCategories.map(cat => ({ ...cat, terms: data.filter(t => t.category_id === cat.id) })));
+    }
+    load();
   }, []);
 
-  const filteredData = useMemo(() => {
-    if (!searchQuery.trim()) return glossary;
-    const query = searchQuery.toLowerCase();
-    return glossary.map(category => {
-      const filteredTerms = category.terms.filter(term => 
-        term.name.toLowerCase().includes(query) || 
-        term.analogy.toLowerCase().includes(query) ||
-        term.description.toLowerCase().includes(query)
-      );
-      return { ...category, terms: filteredTerms };
-    }).filter(category => category.terms.length > 0);
-  }, [searchQuery, glossary]);
-
-  const flashcards = useMemo(() => {
-    const cards: { id?: string; name: string; analogy: string; description: string; categoryTitle: string }[] = [];
-    glossary.forEach(cat => {
-      if (flashcardCategory === 'all' || flashcardCategory === cat.id) {
-        cat.terms.forEach(term => cards.push({ ...term, categoryTitle: cat.title }));
-      }
-    });
-    return cards;
-  }, [glossary, flashcardCategory]);
-
-  const scrollToCategory = (id: string) => {
-    if (viewMode !== 'dictionary') setViewMode('dictionary');
-    setActiveCategory(id);
-    setTimeout(() => {
-      const element = document.getElementById(id);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 100);
-    if (searchQuery) setSearchQuery("");
-  };
-
-  // 4. SAVE TO SUPABASE
-  const handleAddTerm = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!newTerm.name || !newTerm.analogy || !newTerm.description) return;
-    
-    const { data, error } = await supabase
-      .from('terms')
-      .insert([{ 
-        name: newTerm.name, 
-        analogy: newTerm.analogy, 
-        description: newTerm.description, 
-        category_id: newTerm.category 
-      }])
-      .select();
-
-    if (error) {
-      console.error("Error saving to DB:", error);
-      alert("Failed to save to database!");
-      return;
-    }
-
-    const insertedTerm = data[0];
-
-    setGlossary(prev => prev.map(cat => {
-      if (cat.id === newTerm.category) {
-        return {
-          ...cat,
-          terms: [...cat.terms, { 
-            id: insertedTerm.id, 
-            name: insertedTerm.name, 
-            analogy: insertedTerm.analogy, 
-            description: insertedTerm.description 
-          }]
-        };
-      }
-      return cat;
-    }));
-
-    setIsModalOpen(false);
-    setNewTerm({ category: "the-warehouse", name: "", analogy: "", description: "" });
-  };
-
-  // 5. DELETE FROM SUPABASE (THIS IS YOUR FEATURE!)
-  const handleDeleteTerm = async (categoryId: string, dbId: string, termName: string) => {
-    if (!window.confirm(`Are you sure you want to delete "${termName}"?`)) return;
-
-    if (dbId) {
-      const { error } = await supabase.from('terms').delete().eq('id', dbId);
-      if (error) {
-        console.error("Failed to delete from DB", error);
-        alert("Failed to delete from database");
-        return;
-      }
-    }
-
-    setGlossary(prev => prev.map(cat => {
-      if (cat.id === categoryId) {
-        return { ...cat, terms: cat.terms.filter(t => t.id !== dbId) };
-      }
-      return cat;
-    }));
-  };
-
-  // 6. GEMINI AI AUTO-FILL
   const handleAIGenerate = async () => {
-    if (!newTerm.name) {
-      alert("Please type a term name first! (e.g., 'Webhooks')");
-      return;
-    }
-    
+    if (!newTerm.name) return alert("Enter term first!");
     setIsGenerating(true);
-    
     try {
-      const existingCategories = glossary.map(c => ({ id: c.id, title: c.title }));
-
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ term: newTerm.name, existingCategories }),
+        body: JSON.stringify({ term: newTerm.name, existingCategories: baseCategories.map(c => ({ id: c.id, title: c.title })) })
       });
-
-      if (!response.ok) throw new Error("Failed to fetch from AI API");
-      
       const data = await response.json();
-
-      const categoryExists = glossary.some(c => c.id === data.categoryId);
-
-      if (!categoryExists && data.categoryId && data.newCategoryTitle) {
-        const brandNewCategory = {
-          id: data.categoryId,
-          title: data.newCategoryTitle,
-          subtitle: "AI Generated",
-          icon: <Sparkles className="w-5 h-5" />, 
-          description: "A custom category created dynamically by AI.",
-          terms: []
-        };
-        setGlossary(prev => [...prev, brandNewCategory]);
-      }
-      
-      setNewTerm(prev => ({
-        ...prev,
-        analogy: data.analogy || "Could not generate analogy.",
-        description: data.description || "Could not generate description.",
-        category: data.categoryId || prev.category
-      }));
-
-    } catch (error) {
-      console.error(error);
-      alert("Oops! The AI connection failed. Check your terminal for details.");
-    } finally {
-      setIsGenerating(false);
-    }
+      setNewTerm(prev => ({ ...prev, analogy: data.analogy || "", description: data.description || "", category: data.categoryId || prev.category }));
+    } catch (e) { alert("Vault Sync failed."); } 
+    finally { setIsGenerating(false); }
   };
 
-  const nextCard = () => {
-    setIsFlipped(false);
-    setTimeout(() => setCurrentCardIndex((prev) => (prev + 1) % flashcards.length), 150);
-  };
+  const filteredData = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    return glossary.map(c => ({
+      ...c, terms: c.terms.filter(t => t.name.toLowerCase().includes(query) || t.description.toLowerCase().includes(query))
+    })).filter(c => c.terms.length > 0);
+  }, [searchQuery, glossary]);
 
-  const prevCard = () => {
-    setIsFlipped(false);
-    setTimeout(() => setCurrentCardIndex((prev) => (prev - 1 + flashcards.length) % flashcards.length), 150);
-  };
-
-  const shuffleCards = () => {
-    setIsFlipped(false);
-    setTimeout(() => setCurrentCardIndex(Math.floor(Math.random() * flashcards.length)), 150);
-  };
-
-  useEffect(() => {
-    setCurrentCardIndex(0);
-    setIsFlipped(false);
-  }, [flashcardCategory]);
+  const allTerms = useMemo(() => glossary.flatMap(c => c.terms.map(t => ({ ...t, catTitle: c.title }))), [glossary]);
 
   return (
-    <div className="flex h-screen bg-neutral-50 font-sans text-neutral-900 overflow-hidden">
+    <div className="flex h-screen bg-background font-mono text-foreground overflow-hidden">
       
-      <aside className="w-72 bg-white border-r border-neutral-200 flex-shrink-0 flex flex-col hidden lg:flex z-20">
-        <div className="p-6 border-b border-neutral-200">
-          <div className="flex items-center gap-2 mb-1">
-            <BookOpen className="w-6 h-6 text-indigo-600" />
-            <h1 className="text-lg font-bold">Tech Glossary</h1>
-          </div>
-          <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Product Designer Edition</p>
-        </div>
-        
-        <div className="p-4 flex-1 overflow-y-auto">
-          <div className="mb-4 pb-4 border-b border-neutral-100">
-            <button
-              onClick={() => setViewMode('dictionary')}
-              className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-3 mb-2 transition-all ${
-                viewMode === 'dictionary' ? "bg-indigo-50 text-indigo-700 font-bold" : "text-neutral-600 hover:bg-neutral-100 font-medium"
-              }`}
-            >
-              <BookOpen className="w-5 h-5" /> Dictionary View
-            </button>
-            <button
-              onClick={() => setViewMode('flashcards')}
-              className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-3 transition-all ${
-                viewMode === 'flashcards' ? "bg-indigo-50 text-indigo-700 font-bold" : "text-neutral-600 hover:bg-neutral-100 font-medium"
-              }`}
-            >
-              <CreditCard className="w-5 h-5" /> Flashcards Mode
-            </button>
-          </div>
-
-          <p className="px-3 text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Categories</p>
-          {glossary.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => scrollToCategory(cat.id)}
-              className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-3 mb-1 transition-all ${
-                activeCategory === cat.id && viewMode === 'dictionary' ? "bg-indigo-50/50 text-indigo-700" : "text-neutral-500 hover:bg-neutral-100"
-              }`}
-            >
-              <span className={activeCategory === cat.id && viewMode === 'dictionary' ? "text-indigo-600" : "text-neutral-400"}>{cat.icon}</span>
-              <span className="text-sm">{cat.title}</span>
+      {/* SIDEBAR */}
+      <aside className="w-60 border-r border-border hidden lg:flex flex-col bg-card/10">
+        <header className="p-10">
+          <h1 className="text-2xl font-black italic tracking-tighter leading-none uppercase">unjargon.</h1>
+          <p className="text-[8px] uppercase tracking-[0.4em] font-bold text-muted-foreground mt-3">Product Designer Edition</p>
+        </header>
+        <nav className="flex-1 overflow-y-auto px-6 space-y-1">
+          {glossary.map(cat => (
+            <button key={cat.id} onClick={() => { setViewMode('dictionary'); setActiveCategory(cat.id); document.getElementById(cat.id)?.scrollIntoView({ behavior: 'smooth' }); }} 
+              className={`w-full text-left py-2 text-[10px] font-black uppercase tracking-tight transition-all ${activeCategory === cat.id && viewMode === 'dictionary' ? "text-primary translate-x-1" : "text-muted-foreground hover:text-foreground"}`}>
+              {cat.title}
             </button>
           ))}
-        </div>
-        
-        <div className="p-4 border-t border-neutral-200 bg-white">
-          <button onClick={() => setIsModalOpen(true)} className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-md transition-all">
-            <Plus className="w-4 h-4" /> Add New Term
-          </button>
-        </div>
+        </nav>
       </aside>
 
-      <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="bg-white/80 backdrop-blur-md border-b border-neutral-200 p-4 sticky top-0 z-10 flex flex-col gap-3">
-          <div className="flex lg:hidden bg-neutral-100 p-1 rounded-xl">
-            <button 
-              onClick={() => setViewMode('dictionary')}
-              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${viewMode === 'dictionary' ? 'bg-white shadow-sm text-indigo-600' : 'text-neutral-500'}`}
-            >
-              Dictionary
-            </button>
-            <button 
-              onClick={() => setViewMode('flashcards')}
-              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${viewMode === 'flashcards' ? 'bg-white shadow-sm text-indigo-600' : 'text-neutral-500'}`}
-            >
-              Flashcards
-            </button>
+      <main className="flex-1 flex flex-col min-w-0">
+        {/* TOP BAR */}
+        <header className="h-24 border-b border-border flex items-center justify-between px-10 bg-background z-40">
+          <div className="flex gap-px bg-border p-px">
+            <button onClick={() => { setViewMode('dictionary'); setIsFlipped(false); }} className={`px-6 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'dictionary' ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"}`}>Dictionary</button>
+            <button onClick={() => { setViewMode('flashcards'); setIsFlipped(false); }} className={`px-6 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'flashcards' ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"}`}>Flashcards</button>
           </div>
 
-          <div className="max-w-3xl mx-auto w-full relative flex gap-3">
-            {viewMode === 'dictionary' ? (
-              <div className="relative flex-1">
-                <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-                <input
-                  type="text"
-                  placeholder="Search jargon..."
-                  className="w-full bg-neutral-100 border-none rounded-xl pl-10 pr-4 py-2.5 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+          <div className="flex flex-1 max-w-sm mx-10 items-center gap-6">
+            <div className="relative flex-1 group">
+               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+               <input type="text" placeholder="SEARCH_VULT..." className="w-full bg-card border border-border pl-10 pr-4 py-3 text-[10px] font-bold tracking-widest uppercase focus:outline-none focus:border-primary/50" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            </div>
+            
+            {/* MECHANICAL THEME TOGGLE */}
+            <div 
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="w-20 h-10 bg-card border border-border relative cursor-pointer flex items-center shadow-inner group shrink-0"
+            >
+              <div className="absolute inset-0 flex justify-between items-center px-3 opacity-20 group-hover:opacity-40 transition-opacity">
+                <Sun className="w-3.5 h-3.5" />
+                <Moon className="w-3.5 h-3.5" />
               </div>
-            ) : (
-              <div className="flex-1">
-                <select 
-                  className="w-full bg-neutral-100 border-none rounded-xl px-4 py-2.5 font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none text-neutral-700"
-                  value={flashcardCategory}
-                  onChange={(e) => setFlashcardCategory(e.target.value)}
-                >
-                  <option value="all">Study All Categories</option>
-                  {glossary.map(cat => <option key={cat.id} value={cat.id}>{cat.title}</option>)}
-                </select>
+              <div className={`absolute top-0 h-full w-10 bg-primary transition-all duration-200 ease-in-out flex items-center justify-center z-10 ${theme === 'dark' ? 'translate-x-full border-l border-primary-foreground/20' : 'translate-x-0 border-r border-primary-foreground/20'}`}>
+                 {theme === 'dark' ? <Moon className="w-4 h-4 text-primary-foreground" /> : <Sun className="w-4 h-4 text-primary-foreground" />}
               </div>
-            )}
-            <button onClick={() => setIsModalOpen(true)} className="lg:hidden px-4 bg-indigo-600 text-white rounded-xl flex items-center justify-center">
-              <Plus className="w-5 h-5" />
-            </button>
+            </div>
           </div>
+
+          {/* FIXED BUTTON: Swapped physical borders for solid shadow to fix padding/centering */}
+          <button 
+            onClick={() => setIsModalOpen(true)} 
+            className="h-11 px-8 bg-foreground text-background text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-primary-foreground transition-all flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(255,77,0,0.2)] active:shadow-none active:translate-x-1 active:translate-y-1 shrink-0"
+          >
+            New Entry
+          </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto scroll-smooth">
-          {viewMode === 'dictionary' && (
-             <div className="p-6 lg:p-10 max-w-3xl mx-auto space-y-12 pb-32">
-                {filteredData.length === 0 ? (
-                  <div className="text-center py-20 bg-white border-2 border-dashed border-neutral-200 rounded-3xl">
-                    <Info className="w-10 h-10 text-neutral-300 mx-auto mb-3" />
-                    <h3 className="text-lg font-medium text-neutral-900">No matching terms</h3>
-                    <p className="text-neutral-500 mt-1">Try a different search query.</p>
+        <div className="flex-1 overflow-y-auto p-10 lg:p-20 custom-scrollbar">
+          {viewMode === 'dictionary' ? (
+            <div className="max-w-4xl mx-auto space-y-32">
+              {filteredData.map(cat => (
+                <section key={cat.id} id={cat.id} className="scroll-mt-40">
+                  <h2 className="text-[10px] font-black text-primary uppercase tracking-[0.6em] mb-12 flex items-center">
+                    {cat.title} <span className="ml-4 h-[1px] bg-border flex-1"></span>
+                  </h2>
+                  <div className="space-y-16">
+                    {cat.terms.map(term => (
+                      <article key={term.id} className="relative pl-10 group">
+                        <div className="absolute left-0 top-2 w-1 h-8 bg-primary/20 group-hover:bg-primary transition-all"></div>
+                        <h3 className="text-2xl font-black mb-6 tracking-tighter uppercase">{term.name}</h3>
+                        <div className="mb-6">
+                           <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1 opacity-50">Analogy</p>
+                           <p className="text-lg font-black text-foreground italic border-l-2 border-primary pl-4">“{term.analogy}”</p>
+                        </div>
+                        <p className="text-sm text-muted-foreground leading-relaxed font-sans max-w-2xl">{term.description}</p>
+                      </article>
+                    ))}
                   </div>
-                ) : (
-                  filteredData.map((category) => (
-                    <section key={category.id} id={category.id} className="scroll-mt-28">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">{category.icon}</div>
-                        <h2 className="text-xl font-bold">{category.title}</h2>
-                        <span className="text-sm text-neutral-400 font-medium ml-2">{category.subtitle}</span>
+                </section>
+              ))}
+            </div>
+          ) : (
+            /* FLASHCARDS */
+            <div className="h-full flex flex-col items-center justify-center">
+              {allTerms.length > 0 ? (
+                <div className="w-full max-w-xl space-y-16 text-center">
+                  <p className="text-[10px] font-black text-primary tracking-[0.6em] uppercase">ACCESSING_TERM_{currentCardIndex + 1}</p>
+                  <div className="w-full aspect-video perspective-1000 cursor-pointer" onClick={() => setIsFlipped(!isFlipped)}>
+                    <div className={`relative w-full h-full transition-transform duration-700 preserve-3d ${isFlipped ? '[transform:rotateY(180deg)]' : ''}`}>
+                      <div className="absolute inset-0 backface-hidden border border-border bg-card flex flex-col items-center justify-center p-16" style={{ transform: 'translateZ(1px)' }}>
+                        <h2 className="text-5xl font-black tracking-tighter uppercase leading-none">{allTerms[currentCardIndex].name}</h2>
                       </div>
-                      <p className="text-sm text-neutral-500 mb-4 lg:ml-11">{category.description}</p>
-                      <div className="space-y-4 lg:ml-11">
-                        {category.terms.map((term, i) => (
-                          <div key={term.id || i} className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm hover:border-indigo-200 transition-all relative group">
-                            
-                            {/* THE MAGICAL DELETE BUTTON */}
-                            <button 
-                              onClick={() => handleDeleteTerm(category.id, term.id, term.name)}
-                              className="absolute top-4 right-4 p-2 text-neutral-300 hover:text-red-600 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
-                              title="Delete term"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-
-                            <h3 className="font-bold mb-2 flex items-center gap-2 pr-10">
-                              <Hash className="w-3 h-3 text-indigo-300"/>
-                              {term.name}
-                            </h3>
-                            <div className="mb-3">
-                              <span className="text-[11px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-md tracking-wide">
-                                Think of it like: {term.analogy}
-                              </span>
-                            </div>
-                            <p className="text-sm text-neutral-600 leading-relaxed">{term.description}</p>
-                          </div>
-                        ))}
-                        {category.terms.length === 0 && (
-                          <div className="text-sm text-neutral-400 italic bg-neutral-100/50 border border-dashed border-neutral-200 rounded-xl p-4 text-center">No terms saved yet. Add one!</div>
-                        )}
+                      <div className="absolute inset-0 backface-hidden border-2 border-primary bg-primary text-primary-foreground flex flex-col items-center justify-center p-16" style={{ transform: 'rotateY(180deg) translateZ(1px)' }}>
+                        <p className="text-3xl font-black mb-8 italic tracking-tighter leading-tight">“{allTerms[currentCardIndex].analogy}”</p>
+                        <p className="text-sm font-sans leading-relaxed max-w-xs opacity-90">{allTerms[currentCardIndex].description}</p>
                       </div>
-                    </section>
-                  ))
-                )}
-             </div>
-          )}
-
-          {viewMode === 'flashcards' && (
-             <div className="h-full flex flex-col items-center justify-center p-6 lg:p-10 pb-32">
-                 {flashcards.length === 0 ? (
-                   <div className="text-center"><p className="text-neutral-500 font-medium">Switch to Dictionary view to add terms.</p></div>
-                 ) : (
-                   <div className="w-full max-w-md flex flex-col items-center gap-8">
-                     <div className="text-sm font-bold text-neutral-400 tracking-widest uppercase">
-                       Card {currentCardIndex + 1} of {flashcards.length}
-                     </div>
-
-                     <div 
-                       className="w-full aspect-[4/3] perspective-1000 cursor-pointer"
-                       onClick={() => setIsFlipped(!isFlipped)}
-                     >
-                       <div 
-                         className={`relative w-full h-full transition-all duration-500 preserve-3d shadow-xl rounded-3xl ${isFlipped ? '[transform:rotateY(180deg)]' : ''}`}
-                         style={{ transformStyle: 'preserve-3d' }}
-                       >
-                         <div className="absolute inset-0 backface-hidden bg-white border border-neutral-200 rounded-3xl p-8 flex flex-col items-center justify-center text-center gap-4" style={{ backfaceVisibility: 'hidden' }}>
-                           <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider">{flashcards[currentCardIndex].categoryTitle}</div>
-                           <h2 className="text-3xl font-bold text-neutral-900">{flashcards[currentCardIndex].name}</h2>
-                           <p className="text-sm text-neutral-400 mt-4 absolute bottom-6">Tap to flip</p>
-                         </div>
-
-                         <div className="absolute inset-0 backface-hidden bg-indigo-600 text-white rounded-3xl p-8 flex flex-col items-center justify-center text-center" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-                           <div className="bg-indigo-500/50 px-3 py-1.5 rounded-lg mb-6 inline-block">
-                             <p className="text-sm font-bold tracking-wide text-indigo-50 uppercase mb-1">Think of it like:</p>
-                             <p className="text-lg font-bold">{flashcards[currentCardIndex].analogy}</p>
-                           </div>
-                           <p className="text-base leading-relaxed text-indigo-50">{flashcards[currentCardIndex].description}</p>
-                         </div>
-                       </div>
-                     </div>
-
-                     <div className="flex items-center gap-4 w-full">
-                       <button onClick={prevCard} className="flex-1 py-4 bg-white border border-neutral-200 rounded-2xl flex justify-center hover:bg-neutral-50 active:scale-95 transition-all shadow-sm text-neutral-600">
-                         <ArrowLeft className="w-5 h-5" />
-                       </button>
-                       <button onClick={shuffleCards} className="p-4 bg-white border border-neutral-200 rounded-2xl flex justify-center hover:bg-neutral-50 active:scale-95 transition-all shadow-sm text-neutral-400 hover:text-indigo-600">
-                         <Shuffle className="w-5 h-5" />
-                       </button>
-                       <button onClick={nextCard} className="flex-1 py-4 bg-white border border-neutral-200 rounded-2xl flex justify-center hover:bg-neutral-50 active:scale-95 transition-all shadow-sm text-neutral-600">
-                         <ArrowRight className="w-5 h-5" />
-                       </button>
-                     </div>
-                   </div>
-                 )}
-             </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-1 justify-center">
+                    <button onClick={(e) => { e.stopPropagation(); setIsFlipped(false); setCurrentCardIndex(p => (p - 1 + allTerms.length) % allTerms.length); }} className="px-8 py-4 border border-border hover:border-primary text-[10px] font-black uppercase transition-colors">Prev</button>
+                    <button onClick={(e) => { e.stopPropagation(); setIsFlipped(false); setCurrentCardIndex(p => (p + 1) % allTerms.length); }} className="px-8 py-4 border border-border hover:border-primary text-[10px] font-black uppercase transition-colors">Next</button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           )}
         </div>
       </main>
 
+      {/* MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}>
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="p-6 border-b border-neutral-100 flex justify-between items-center bg-indigo-50/50">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-indigo-600" />
-                <h2 className="text-lg font-bold text-indigo-950">AI Term Generator</h2>
-              </div>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-neutral-200 rounded-full transition-colors"><X className="w-5 h-5 text-neutral-500"/></button>
+        <div className="fixed inset-0 z-[100] bg-background/95 flex items-center justify-center p-6" onClick={() => setIsModalOpen(false)}>
+          <div className="w-full max-w-md bg-background border border-primary p-10 space-y-8" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-black uppercase tracking-tighter italic">VULT_ENTRY</h2>
+              <button onClick={() => setIsModalOpen(false)}><X className="w-5 h-5"/></button>
             </div>
-
-            <form onSubmit={handleAddTerm} className="p-6 space-y-4">
-              <div>
-                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1 block">1. What do you want to learn?</label>
+            <form className="space-y-6" onSubmit={async e => {
+              e.preventDefault();
+              const { data } = await supabase.from('terms').insert([{ name: newTerm.name, analogy: newTerm.analogy, description: newTerm.description, category_id: newTerm.category }]).select();
+              if (data) window.location.reload();
+            }}>
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Term Name</label>
                 <div className="flex gap-2">
-                  <input 
-                    className="flex-1 bg-white border border-neutral-300 p-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20" 
-                    placeholder="e.g. Serverless" 
-                    value={newTerm.name} 
-                    onChange={e => setNewTerm({...newTerm, name: e.target.value})} 
-                  />
-                  <button 
-                    type="button"
-                    onClick={handleAIGenerate}
-                    disabled={isGenerating}
-                    className="px-4 bg-indigo-100 text-indigo-700 font-bold rounded-xl hover:bg-indigo-200 transition-colors flex items-center gap-2 disabled:opacity-50"
-                  >
-                    {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-                    Auto-Fill
+                  <input className="flex-1 bg-card border border-border p-4 text-[11px] font-black uppercase outline-none focus:border-primary" placeholder="E.G. DOCKER" value={newTerm.name} onChange={e => setNewTerm({...newTerm, name: e.target.value})} />
+                  <button type="button" onClick={handleAIGenerate} disabled={isGenerating || !newTerm.name} className="px-4 bg-card border border-border hover:bg-primary hover:text-primary-foreground transition-all flex items-center justify-center">
+                    {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
-
-              <div className={`transition-all duration-500 ${isGenerating ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
-                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1 block mt-4">2. The Analogy</label>
-                <input 
-                  className="w-full bg-neutral-50 border border-neutral-200 p-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20" 
-                  placeholder="Think of it like..." 
-                  value={newTerm.analogy} 
-                  onChange={e => setNewTerm({...newTerm, analogy: e.target.value})} 
-                />
-                
-                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1 block mt-4">3. The Explanation</label>
-                <textarea 
-                  className="w-full bg-neutral-50 border border-neutral-200 p-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 h-24 resize-none" 
-                  placeholder="Explain it simply..." 
-                  value={newTerm.description} 
-                  onChange={e => setNewTerm({...newTerm, description: e.target.value})} 
-                />
-
-                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1 block mt-4">4. Category</label>
-                <select 
-                  className="w-full bg-neutral-50 border border-neutral-200 p-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20" 
-                  value={newTerm.category} 
-                  onChange={e => setNewTerm({...newTerm, category: e.target.value})}
-                >
-                  {glossary.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                </select>
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Designer Analogy</label>
+                <input className="w-full bg-card border border-border p-4 text-[11px] font-black uppercase outline-none focus:border-primary" value={newTerm.analogy} onChange={e => setNewTerm({...newTerm, analogy: e.target.value})} />
               </div>
-
-              <button 
-                type="submit"
-                disabled={isGenerating || !newTerm.name || !newTerm.analogy}
-                className="w-full mt-6 py-3.5 bg-indigo-950 text-white rounded-xl font-bold hover:bg-indigo-900 transition-colors disabled:opacity-50"
-              >
-                Save to Dictionary
-              </button>
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Explanation</label>
+                <textarea className="w-full bg-card border border-border p-4 text-sm font-sans h-32 outline-none focus:border-primary resize-none" value={newTerm.description} onChange={e => setNewTerm({...newTerm, description: e.target.value})} />
+              </div>
+              <button type="submit" disabled={isGenerating} className="w-full py-5 bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all active:scale-95 disabled:opacity-50">Upload to Vault</button>
             </form>
           </div>
         </div>
