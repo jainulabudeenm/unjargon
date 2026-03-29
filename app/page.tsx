@@ -1,123 +1,97 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { 
   Search, BookOpen, Terminal, Code2, Layers, 
   Paintbrush, Database, Rocket, HelpCircle, 
   Hash, Box, FileText, Info, Plus, X, 
-  CreditCard, ArrowRight, ArrowLeft, Shuffle, Sparkles, Loader2
+  CreditCard, ArrowRight, ArrowLeft, Shuffle, Sparkles, Loader2, Trash2
 } from 'lucide-react';
 
-const initialGlossaryData = [
+// 1. Initialize Supabase
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// 2. The Hybrid "Anatomy" Categories
+const baseCategories = [
+  // --- THE PRODUCT (Front to Back) ---
   {
     id: "core-languages",
     title: "1. The Core Languages",
-    subtitle: "(The Anatomy)",
+    subtitle: "(The DNA)",
     icon: <Code2 className="w-5 h-5" />,
-    description: "The basic DNA of the web. Every site you design is eventually translated into these three things.",
-    terms: [
-      { name: "HTML (HyperText Markup Language)", analogy: "The Wireframe.", description: "Defines the raw structure. It tells the browser 'this is a button' or 'this is a heading,' but has no opinion on what they look like." },
-      { name: "CSS (Cascading Style Sheets)", analogy: "Visual Design & Auto-Layout.", description: "Applies the branding. This is where hex codes, typography, padding, and layout rules (like Flexbox or Grid) live." },
-      { name: "JavaScript (JS)", analogy: "The Interactive Logic.", description: "The engine that makes things 'do' something. If a user clicks a button and a modal pops up, JavaScript is doing the work." }
-    ]
-  },
-  {
-    id: "workspace",
-    title: "2. The Workspace",
-    subtitle: "(The Tools)",
-    icon: <Terminal className="w-5 h-5" />,
-    description: "The software environments where developers spend their day writing and managing code.",
-    terms: [
-      { name: "IDE (Integrated Development Environment)", analogy: "The Developer's Figma.", description: "The primary app for writing code (like VS Code or Cursor). It's an advanced text editor with features like auto-complete and error checking." },
-      { name: "CLI (Command Line Interface)", analogy: "The Quick Command Palette (Cmd + /).", description: "The Terminal app. Instead of clicking buttons, developers type text commands to tell the computer what to do instantly." },
-      { name: "Homebrew", analogy: "The App Store for the Terminal.", description: "A tool used to install software (like Node.js or Figma) via a single text command instead of downloading setup files manually." }
-    ]
-  },
-  {
-    id: "version-control",
-    title: "3. Version Control",
-    subtitle: "(Saving & Sharing)",
-    icon: <BookOpen className="w-5 h-5" />,
-    description: "How teams save their progress and collaborate without overwriting each other's work.",
-    terms: [
-      { name: "Git", analogy: "Version History on steroids.", description: "A tracking system that takes snapshots of code. If a new feature breaks the app, developers can instantly rewind to a working snapshot." },
-      { name: "GitHub", analogy: "The Cloud Workspace.", description: "A website where Git snapshots are uploaded to be backed up and shared with a team, similar to a shared Figma project." }
-    ]
-  },
-  {
-    id: "building-blocks",
-    title: "4. Building Blocks",
-    subtitle: "& Architecture",
-    icon: <Layers className="w-5 h-5" />,
-    description: "The structural foundations and blueprints used to build modern web applications.",
-    terms: [
-      { name: "Node.js", analogy: "The Engine.", description: "Software that allows JavaScript to run outside of a browser, turning your computer into a machine capable of running full apps." },
-      { name: "Framework", analogy: "The Structural Blueprint.", description: "A pre-written foundation for an app (like Next.js) so developers don't have to build basic mechanics like page navigation from scratch." },
-      { name: "Next.js", analogy: "The Industry-Standard Blueprint.", description: "Currently the most popular framework for building fast, modern web apps. It's the 'pro' version of building with React." },
-      { name: "App Router", analogy: "The Navigation Logic.", description: "The system inside Next.js that manages how pages connect. It handles moving the user from '/home' to '/settings' smoothly." }
-    ]
-  },
-  {
-    id: "package-managers",
-    title: "5. Package Managers",
-    subtitle: "(The Plugin Libraries)",
-    icon: <Box className="w-5 h-5" />,
-    description: "Tools used to download pre-written code 'packages'—essentially UI kits or plugins for code.",
-    terms: [
-      { name: "npm (Node Package Manager)", analogy: "The Default Figma Community.", description: "The standard marketplace where developers download code pieces (like a calendar picker) to add to their project." },
-      { name: "yarn / pnpm / bun", analogy: "Alternative Plugin Managers.", description: "Different 'brands' of managers. Yarn is a faster alternative; pnpm saves hard drive space by sharing files; Bun is the new, blazing-fast 'super-app' version." }
-    ]
+    description: "The raw genetic makeup of the web. Everything eventually compiles down to these three.",
+    terms: [] as any[]
   },
   {
     id: "styling",
-    title: "6. Styling & Quality",
-    subtitle: "(Control)",
+    title: "2. Styling & Quality",
+    subtitle: "(The Surface & Skin)",
     icon: <Paintbrush className="w-5 h-5" />,
-    description: "Tools for enforcing design systems, tokens, and code cleanliness.",
-    terms: [
-      { name: "TailwindCSS", analogy: "Design Tokens applied via code.", description: "A framework that lets developers use shorthand tokens (like 'rounded-lg') directly in their layout code instead of writing separate CSS files." },
-      { name: "TypeScript", analogy: "Strict Component Properties.", description: "An add-on to JavaScript that enforces rules (data types). It ensures a 'Price' field only accepts numbers, not text, preventing crashes." },
-      { name: "ESLint", analogy: "An automated Design Linter.", description: "A tool that scans code for inconsistencies, forcing the whole team to follow the same spacing and style rules." }
-    ]
+    description: "Where design systems, typography, and spacing actually get applied to the screen.",
+    terms: [] as any[]
+  },
+  {
+    id: "building-blocks",
+    title: "3. Building Blocks",
+    subtitle: "(The Skeleton & Muscle)",
+    icon: <Layers className="w-5 h-5" />,
+    description: "The structural frameworks (like React) that connect UI components and make them interactive.",
+    terms: [] as any[]
   },
   {
     id: "backend",
-    title: "7. The Backend",
-    subtitle: "& Connections",
+    title: "4. The Backend",
+    subtitle: "(The Brains & Memory)",
     icon: <Database className="w-5 h-5" />,
-    description: "Where the 'brains' of the app live: databases, logins, and external connections.",
-    terms: [
-      { name: "Database", analogy: "The Filing Cabinet.", description: "A secure system (like a complex Airtable) that stores user profiles, posts, and settings permanently." },
-      { name: "Auth Provider", analogy: "The Bouncer.", description: "A service (like 'Sign in with Google') that handles secure logins and user verification." },
-      { name: "Supabase", analogy: "An All-in-One Backend.", description: "A platform that gives developers a Database and Auth in one place, allowing them to skip weeks of backend setup." },
-      { name: "API", analogy: "The Waiter at a restaurant.", description: "The messenger that takes a request from your app, gets data from another app (like Google Maps), and brings it back to you." },
-      { name: "REST API", analogy: "The standardized Restaurant Menu.", description: "A universally agreed-upon style for APIs. It uses standard actions like GET (read) or POST (save) so communication is predictable." },
-      { name: "MCP (Model Context Protocol)", analogy: "A Universal Translator for AI.", description: "A new standard bridge that lets AI models safely read your files or data without needing custom code for every single app." }
-    ]
+    description: "The invisible layer. Where data, passwords, and logic live permanently in the cloud.",
+    terms: [] as any[]
   },
+  
+  // --- THE ENVIRONMENT (The Workshop) ---
+  {
+    id: "workspace",
+    title: "5. The Workspace",
+    subtitle: "(The Desk)",
+    icon: <Terminal className="w-5 h-5" />,
+    description: "The actual software environments where developers sit and write code all day.",
+    terms: [] as any[]
+  },
+  {
+    id: "package-managers",
+    title: "6. Package Managers",
+    subtitle: "(The Supply Closet)",
+    icon: <Box className="w-5 h-5" />,
+    description: "The tools used to download pre-built plugins (like a calendar picker) into the workspace.",
+    terms: [] as any[]
+  },
+  {
+    id: "version-control",
+    title: "7. Version Control",
+    subtitle: "(The Time Machine)",
+    icon: <BookOpen className="w-5 h-5" />,
+    description: "How teams save history, collaborate safely, and avoid overwriting each other's work.",
+    terms: [] as any[]
+  },
+  
+  // --- THE FINAL MILE ---
   {
     id: "launching",
     title: "8. Launching",
-    subtitle: "& Graphics",
+    subtitle: "(The Delivery)",
     icon: <Rocket className="w-5 h-5" />,
-    description: "Getting the app onto the internet and rendering high-end visuals.",
-    terms: [
-      { name: "Localhost", analogy: "Figma 'Present' Mode.", description: "A private server running only on your laptop. It's a testing ground that no one else on the internet can see." },
-      { name: "Deployment", analogy: "Clicking 'Publish'.", description: "The process of moving the code from your private laptop (localhost) to a public server so real users can visit the URL." },
-      { name: "Host (e.g., Vercel)", analogy: "The 24/7 Exhibition Hall.", description: "The company that provides the servers to keep your app live and accessible on the internet around the clock." },
-      { name: "Docker", analogy: "The Shipping Container.", description: "Packages code with all its settings so it works perfectly on any computer, preventing 'it works on my machine' bugs." }
-    ]
+    description: "Taking the code from a private laptop and deploying it to the public internet.",
+    terms: [] as any[]
   },
   {
     id: "documentation",
     title: "9. Documentation",
     subtitle: "(The Handoff)",
     icon: <FileText className="w-5 h-5" />,
-    description: "The written instructions and standards for a project.",
-    terms: [
-      { name: ".md (Markdown)", analogy: "Keyboard-only formatting.", description: "A simple way to write rich text (bold, titles, lists) using symbols instead of buttons. It's the standard for dev notes." },
-      { name: "README.md", analogy: "The 'Start Here' Cover Page.", description: "The absolute front door of a code project. It explains what the app is, how to install it, and how to use it." }
-    ]
+    description: "The written instructions, README files, and standards for the project.",
+    terms: [] as any[]
   },
   {
     id: "faqs",
@@ -125,20 +99,16 @@ const initialGlossaryData = [
     subtitle: "The Big Mix-ups",
     icon: <HelpCircle className="w-5 h-5" />,
     description: "Clarifying the most common points of confusion.",
-    terms: [
-      { name: "Framework vs. npm", analogy: "The Blueprint vs. The Furniture.", description: "You build the house using a Framework (Next.js). You furnish it with pre-built pieces from npm (Package Manager)." },
-      { name: "Node.js vs. Next.js", analogy: "The Electricity vs. The Appliance.", description: "Node.js is the underlying electricity. Next.js is the smart home system plugged into it." },
-      { name: "App Router vs. API", analogy: "Internal Navigation vs. External Waiter.", description: "The App Router connects your own pages. An API connects your app to other companies' data." }
-    ]
+    terms: [] as any[]
   }
 ];
 
 export default function App() {
-  const [glossary, setGlossary] = useState(initialGlossaryData);
+  const [glossary, setGlossary] = useState(baseCategories);
   const [viewMode, setViewMode] = useState('dictionary'); 
   
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState("core-languages");
+  const [activeCategory, setActiveCategory] = useState("the-blueprint");
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
@@ -147,11 +117,37 @@ export default function App() {
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [newTerm, setNewTerm] = useState({
-    category: "backend",
+    category: "the-warehouse",
     name: "",
     analogy: "",
     description: ""
   });
+
+  // 3. FETCH FROM SUPABASE ON LOAD
+  useEffect(() => {
+    const fetchTerms = async () => {
+      const { data, error } = await supabase.from('terms').select('*');
+      
+      if (error) {
+        console.error("Error fetching from Supabase:", error);
+        return;
+      }
+
+      if (data) {
+        setGlossary(baseCategories.map(cat => ({
+          ...cat,
+          terms: data.filter(t => t.category_id === cat.id).map(t => ({
+            id: t.id,
+            name: t.name,
+            analogy: t.analogy,
+            description: t.description
+          }))
+        })));
+      }
+    };
+
+    fetchTerms();
+  }, []);
 
   const filteredData = useMemo(() => {
     if (!searchQuery.trim()) return glossary;
@@ -167,7 +163,7 @@ export default function App() {
   }, [searchQuery, glossary]);
 
   const flashcards = useMemo(() => {
-    const cards: { name: string; analogy: string; description: string; categoryTitle: string }[] = [];
+    const cards: { id?: string; name: string; analogy: string; description: string; categoryTitle: string }[] = [];
     glossary.forEach(cat => {
       if (flashcardCategory === 'all' || flashcardCategory === cat.id) {
         cat.terms.forEach(term => cards.push({ ...term, categoryTitle: cat.title }));
@@ -188,24 +184,70 @@ export default function App() {
     if (searchQuery) setSearchQuery("");
   };
 
-  const handleAddTerm = (e: React.FormEvent<HTMLFormElement>) => {
+  // 4. SAVE TO SUPABASE
+  const handleAddTerm = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newTerm.name || !newTerm.analogy || !newTerm.description) return;
-    const updatedGlossary = glossary.map(cat => {
+    
+    const { data, error } = await supabase
+      .from('terms')
+      .insert([{ 
+        name: newTerm.name, 
+        analogy: newTerm.analogy, 
+        description: newTerm.description, 
+        category_id: newTerm.category 
+      }])
+      .select();
+
+    if (error) {
+      console.error("Error saving to DB:", error);
+      alert("Failed to save to database!");
+      return;
+    }
+
+    const insertedTerm = data[0];
+
+    setGlossary(prev => prev.map(cat => {
       if (cat.id === newTerm.category) {
         return {
           ...cat,
-          terms: [...cat.terms, { name: newTerm.name, analogy: newTerm.analogy, description: newTerm.description }]
+          terms: [...cat.terms, { 
+            id: insertedTerm.id, 
+            name: insertedTerm.name, 
+            analogy: insertedTerm.analogy, 
+            description: insertedTerm.description 
+          }]
         };
       }
       return cat;
-    });
-    setGlossary(updatedGlossary);
+    }));
+
     setIsModalOpen(false);
-    setNewTerm({ category: "backend", name: "", analogy: "", description: "" });
+    setNewTerm({ category: "the-warehouse", name: "", analogy: "", description: "" });
   };
 
-  // --- THE NEW AUTO-CATEGORIZING AI LOGIC ---
+  // 5. DELETE FROM SUPABASE (THIS IS YOUR FEATURE!)
+  const handleDeleteTerm = async (categoryId: string, dbId: string, termName: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${termName}"?`)) return;
+
+    if (dbId) {
+      const { error } = await supabase.from('terms').delete().eq('id', dbId);
+      if (error) {
+        console.error("Failed to delete from DB", error);
+        alert("Failed to delete from database");
+        return;
+      }
+    }
+
+    setGlossary(prev => prev.map(cat => {
+      if (cat.id === categoryId) {
+        return { ...cat, terms: cat.terms.filter(t => t.id !== dbId) };
+      }
+      return cat;
+    }));
+  };
+
+  // 6. GEMINI AI AUTO-FILL
   const handleAIGenerate = async () => {
     if (!newTerm.name) {
       alert("Please type a term name first! (e.g., 'Webhooks')");
@@ -215,7 +257,6 @@ export default function App() {
     setIsGenerating(true);
     
     try {
-      // 1. Grab our current categories to send to Gemini
       const existingCategories = glossary.map(c => ({ id: c.id, title: c.title }));
 
       const response = await fetch('/api/generate', {
@@ -228,23 +269,20 @@ export default function App() {
       
       const data = await response.json();
 
-      // 2. Check if the AI invented a brand new category
       const categoryExists = glossary.some(c => c.id === data.categoryId);
 
       if (!categoryExists && data.categoryId && data.newCategoryTitle) {
-        // 3. Instantly inject the new category into our UI state!
         const brandNewCategory = {
           id: data.categoryId,
           title: data.newCategoryTitle,
           subtitle: "AI Generated",
-          icon: <Sparkles className="w-5 h-5" />, // Use the sparkles icon for AI categories
+          icon: <Sparkles className="w-5 h-5" />, 
           description: "A custom category created dynamically by AI.",
           terms: []
         };
         setGlossary(prev => [...prev, brandNewCategory]);
       }
       
-      // 4. Update the form fields, automatically switching the dropdown to the AI's choice!
       setNewTerm(prev => ({
         ...prev,
         analogy: data.analogy || "Could not generate analogy.",
@@ -396,15 +434,37 @@ export default function App() {
                       <div className="flex items-center gap-3 mb-6">
                         <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">{category.icon}</div>
                         <h2 className="text-xl font-bold">{category.title}</h2>
+                        <span className="text-sm text-neutral-400 font-medium ml-2">{category.subtitle}</span>
                       </div>
+                      <p className="text-sm text-neutral-500 mb-4 lg:ml-11">{category.description}</p>
                       <div className="space-y-4 lg:ml-11">
                         {category.terms.map((term, i) => (
-                          <div key={i} className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm hover:border-indigo-200 transition-all">
-                            <h3 className="font-bold mb-2 flex items-center gap-2"><Hash className="w-3 h-3 text-indigo-300"/>{term.name}</h3>
-                            <div className="mb-3"><span className="text-[11px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-md tracking-wide">Think of it like: {term.analogy}</span></div>
+                          <div key={term.id || i} className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm hover:border-indigo-200 transition-all relative group">
+                            
+                            {/* THE MAGICAL DELETE BUTTON */}
+                            <button 
+                              onClick={() => handleDeleteTerm(category.id, term.id, term.name)}
+                              className="absolute top-4 right-4 p-2 text-neutral-300 hover:text-red-600 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                              title="Delete term"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+
+                            <h3 className="font-bold mb-2 flex items-center gap-2 pr-10">
+                              <Hash className="w-3 h-3 text-indigo-300"/>
+                              {term.name}
+                            </h3>
+                            <div className="mb-3">
+                              <span className="text-[11px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-md tracking-wide">
+                                Think of it like: {term.analogy}
+                              </span>
+                            </div>
                             <p className="text-sm text-neutral-600 leading-relaxed">{term.description}</p>
                           </div>
                         ))}
+                        {category.terms.length === 0 && (
+                          <div className="text-sm text-neutral-400 italic bg-neutral-100/50 border border-dashed border-neutral-200 rounded-xl p-4 text-center">No terms saved yet. Add one!</div>
+                        )}
                       </div>
                     </section>
                   ))
@@ -481,7 +541,7 @@ export default function App() {
                 <div className="flex gap-2">
                   <input 
                     className="flex-1 bg-white border border-neutral-300 p-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20" 
-                    placeholder="e.g. Webhooks, Bitcoin..." 
+                    placeholder="e.g. Serverless" 
                     value={newTerm.name} 
                     onChange={e => setNewTerm({...newTerm, name: e.target.value})} 
                   />
