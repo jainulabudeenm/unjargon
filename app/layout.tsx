@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   title: "unjargon.",
   description: "Demystifying tech terminology for designers through analogies. Built by Zain.",
   icons: {
-    icon: "/favicon.ico", // 👈 This line adds your copper lock-hole icon
+    icon: "/favicon.ico?v=2", // 👈 The "Cache Buster" that forces the browser to update
   },
   openGraph: {
     title: "unjargon.",
@@ -46,7 +46,7 @@ export default function RootLayout({
         geistSans.variable, 
         geistMono.variable, 
         jetbrainsMono.variable,
-        "font-mono"
+        "font-mono" 
       )}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
