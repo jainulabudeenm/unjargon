@@ -23,7 +23,9 @@ export const metadata: Metadata = {
   title: "unjargon.",
   description: "Demystifying tech terminology for designers through analogies. Built by Zain.",
   icons: {
-    icon: "/favicon.ico?v=2", // 👈 The "Cache Buster" that forces the browser to update
+    // 🎯 Points to the new file in /app with a fresh version query to kill the cache
+    icon: "/favicon.ico?v=5", 
+    apple: "/favicon.ico?v=5",
   },
   openGraph: {
     title: "unjargon.",
