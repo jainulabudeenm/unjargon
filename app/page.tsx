@@ -3,10 +3,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { 
-  Search, BookOpen, Terminal, Code2, Layers, 
-  Paintbrush, Database, Rocket, HelpCircle, 
-  Hash, Box, FileText, Info, Plus, X, 
-  Check, Sparkles, Loader2, Sun, Moon, Menu, AlertTriangle
+  Search, Menu, Plus, X, Check, Sparkles, Loader2, Sun, Moon, AlertTriangle 
 } from 'lucide-react';
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL || "", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "");
@@ -25,7 +22,11 @@ const baseCategories = [
 ];
 
 export default function App() {
+  // 1. REFS
   const searchRef = useRef<HTMLInputElement>(null);
+  const mainRef = useRef<HTMLDivElement>(null); // 🎯 CRITICAL: Watches the scroll container
+
+  // 2. STATE
   const [glossary, setGlossary] = useState(baseCategories.map(c => ({ ...c, terms: [] as any[] })));
   const [viewMode, setViewMode] = useState('dictionary'); 
   const [theme, setTheme] = useState('dark'); 
@@ -35,13 +36,14 @@ export default function App() {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-
   const [isAdmin, setIsAdmin] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalStep, setModalStep] = useState<'input' | 'generated' | 'success'>('input');
   const [isGenerating, setIsGenerating] = useState(false);
   const [newTerm, setNewTerm] = useState({ category: "core-languages", name: "", analogy: "", description: "" });
 
+  // 3. DERIVED DATA
+  const allTerms = useMemo(() => glossary.flatMap(c => c.terms.map(t => ({ ...t, catTitle: c.title }))), [glossary]);
   const filteredData = useMemo(() => {
     const query = searchQuery.toLowerCase();
     return glossary.map(c => ({
@@ -49,8 +51,8 @@ export default function App() {
     })).filter(c => c.terms.length > 0);
   }, [searchQuery, glossary]);
 
-  const allTerms = useMemo(() => glossary.flatMap(c => c.terms.map(t => ({ ...t, catTitle: c.title }))), [glossary]);
-
+  // 4. HANDLERS
+  const toggleTheme = useCallback(() => setTheme(prev => prev === 'dark' ? 'light' : 'dark'), []);
   const openModal = useCallback(() => {
     if (!isAdmin) return;
     setNewTerm({ category: "core-languages", name: "", analogy: "", description: "" });
@@ -58,45 +60,56 @@ export default function App() {
     setIsModalOpen(true);
   }, [isAdmin]);
 
-  const handleModeChange = (mode: string) => {
+  const handleModeChange = useCallback((mode: string) => {
     if (mode === viewMode) return;
     setIsTransitioning(true);
-    setTimeout(() => {
-      setViewMode(mode);
-      setIsTransitioning(false);
-    }, 200);
-  };
+    setTimeout(() => { setViewMode(mode); setIsTransitioning(false); }, 250);
+  }, [viewMode]);
 
-  const toggleTheme = useCallback(() => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-  }, []);
+  // 5. EFFECTS
 
+  // A. 🎯 SIDEBAR SCROLL SYNC (Fixed Intersection Logic)
+  useEffect(() => {
+    const container = mainRef.current;
+    if (viewMode !== 'dictionary' || !container) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // We find the first entry that enters our top "Active Zone"
+        const visibleEntry = entries.find(entry => entry.isIntersecting);
+        if (visibleEntry) {
+          setActiveCategory(visibleEntry.target.id);
+        }
+      },
+      { 
+        root: container,
+        threshold: 0,
+        rootMargin: "-15% 0px -80% 0px" // Only watches a small slice near the top
+      }
+    );
+
+    const sections = container.querySelectorAll('section[id]');
+    sections.forEach((section) => observer.observe(section));
+
+    return () => observer.disconnect();
+  }, [viewMode, filteredData]);
+
+  // B. Shortcuts & Mouse Track
   useEffect(() => {
     const handleMove = (e: MouseEvent) => {
       document.documentElement.style.setProperty('--mouse-x', `${e.clientX}px`);
       document.documentElement.style.setProperty('--mouse-y', `${e.clientY}px`);
     };
-    const handleTouch = (e: TouchEvent) => {
-      if (e.touches[0]) {
-        document.documentElement.style.setProperty('--mouse-x', `${e.touches[0].clientX}px`);
-        document.documentElement.style.setProperty('--mouse-y', `${e.touches[0].clientY}px`);
-      }
-    };
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
         const pass = window.prompt("ENTER ARCHITECT KEY:");
-        if (pass === process.env.NEXT_PUBLIC_ADMIN_KEY) { setIsAdmin(true); }
+        if (pass === process.env.NEXT_PUBLIC_ADMIN_KEY) setIsAdmin(true);
         return;
       }
       if (e.key === 'Escape' && isModalOpen) { setIsModalOpen(false); return; }
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && isModalOpen) {
-          e.preventDefault();
-          document.getElementById('modal-form')?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-        }
-        return;
-      }
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      
       if (viewMode === 'dictionary' && (((e.metaKey || e.ctrlKey) && e.key === 'k') || e.key === '/')) {
         e.preventDefault();
         searchRef.current?.focus();
@@ -105,6 +118,7 @@ export default function App() {
       if (e.key === 'd' || e.key === '1') handleModeChange('dictionary');
       if (e.key === 'f' || e.key === '2') handleModeChange('flashcards');
       if (isAdmin && e.key === 'n') { e.preventDefault(); openModal(); }
+
       if (viewMode === 'flashcards' && allTerms.length > 0) {
         if (e.key === 'ArrowRight' || e.key === 'l') { setIsFlipped(false); setCurrentCardIndex(p => (p + 1) % allTerms.length); }
         if (e.key === 'ArrowLeft' || e.key === 'h') { setIsFlipped(false); setCurrentCardIndex(p => (p - 1 + allTerms.length) % allTerms.length); }
@@ -112,14 +126,12 @@ export default function App() {
       }
     };
     window.addEventListener('mousemove', handleMove);
-    window.addEventListener('touchmove', handleTouch);
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('touchmove', handleTouch);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [viewMode, allTerms, openModal, theme, toggleTheme, isModalOpen, isAdmin]);
+  }, [viewMode, allTerms, isAdmin, isModalOpen, toggleTheme, handleModeChange, openModal]);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -134,6 +146,7 @@ export default function App() {
     load();
   }, []);
 
+  // 6. DB HANDLERS
   const handleAIGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTerm.name || !isAdmin) return;
@@ -147,12 +160,11 @@ export default function App() {
       const data = await response.json();
       setNewTerm(prev => ({ ...prev, analogy: data.analogy || "", description: data.description || "", category: data.categoryId || prev.category }));
       setModalStep('generated'); 
-    } catch (e) { alert("Vault Sync failed."); } finally { setIsGenerating(false); }
+    } catch (err) { alert("Sync failed."); } finally { setIsGenerating(false); }
   };
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isAdmin) return;
     const { data } = await supabase.from('terms').insert([{ 
       name: newTerm.name, analogy: newTerm.analogy, description: newTerm.description, category_id: newTerm.category 
     }]).select();
@@ -166,8 +178,8 @@ export default function App() {
     <div className="flex flex-col h-screen bg-background font-mono text-foreground overflow-hidden relative selection:bg-primary/30">
       <div className="interactive-grid pointer-events-none z-0" />
 
-      {/* 1. HEADER */}
-      <header className="h-20 lg:h-24 w-full border-b border-border flex items-center bg-background z-50 shadow-sm shrink-0">
+      {/* HEADER: Added overflow-visible for tooltips */}
+      <header className="h-20 lg:h-24 w-full border-b border-border flex items-center bg-background z-50 shadow-sm shrink-0 overflow-visible">
         <div className="w-auto lg:w-64 h-full flex items-center px-4 lg:px-6 lg:border-r border-border shrink-0">
            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 hover:bg-white/5 mr-2 -ml-2"><Menu className="w-5 h-5"/></button>
            <div className="flex flex-col justify-center">
@@ -176,31 +188,24 @@ export default function App() {
            </div>
         </div>
 
-        <div className="flex-1 flex h-full items-center px-4 lg:px-10 gap-4">
-          <div className="flex-1 flex justify-start shrink-0">
-             {/* 🕹️ SMOOTH SEGMENTED CONTROL */}
-             <div className="hidden sm:flex relative bg-border p-px shrink-0 overflow-hidden">
-                <div 
-                  className={`absolute top-px bottom-px bg-primary transition-all duration-300 ease-out z-0 ${viewMode === 'dictionary' ? 'left-px w-[110px]' : 'left-[111px] w-[110px]'}`}
-                />
-                <button 
-                  onClick={() => handleModeChange('dictionary')} 
-                  className={`relative z-10 w-[110px] py-2.5 text-[11px] font-black uppercase tracking-widest transition-colors duration-300 ${viewMode === 'dictionary' ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  Vault
-                  <kbd className="hidden lg:inline-flex absolute -bottom-7 left-1/2 -translate-x-1/2 items-center justify-center px-2 py-0.5 rounded border border-border bg-card text-[10px] opacity-0 hover:opacity-100 transition-opacity text-foreground">D</kbd>
+        <div className="flex-1 flex h-full items-center px-4 lg:px-10 gap-4 overflow-visible">
+          <div className="flex-1 flex justify-start shrink-0 overflow-visible">
+             {/* MODE TOGGLE */}
+             <div className="hidden sm:flex relative bg-border p-px shrink-0 overflow-visible">
+                <div className={`absolute top-px bottom-px bg-primary transition-all duration-300 ease-out z-0 pointer-events-none ${viewMode === 'dictionary' ? 'left-px w-[140px]' : 'left-[141px] w-[140px]'}`} />
+                
+                <button onClick={() => handleModeChange('dictionary')} className="group relative z-10 w-[140px] py-2.5 text-[11px] font-black uppercase tracking-widest transition-colors duration-300">
+                  <span className={viewMode === 'dictionary' ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"}>Dictionary</span>
+                  <kbd className="absolute -bottom-10 left-1/2 -translate-x-1/2 flex items-center justify-center px-2 py-1 rounded border border-border bg-card text-[10px] opacity-0 group-hover:opacity-100 transition-all text-foreground shadow-xl pointer-events-none z-[100]">D</kbd>
                 </button>
-                <button 
-                  onClick={() => handleModeChange('flashcards')} 
-                  className={`relative z-10 w-[110px] py-2.5 text-[11px] font-black uppercase tracking-widest transition-colors duration-300 ${viewMode === 'flashcards' ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  Study Mode
-                  <kbd className="hidden lg:inline-flex absolute -bottom-7 left-1/2 -translate-x-1/2 items-center justify-center px-2 py-0.5 rounded border border-border bg-card text-[10px] opacity-0 hover:opacity-100 transition-opacity text-foreground">F</kbd>
+                
+                <button onClick={() => handleModeChange('flashcards')} className="group relative z-10 w-[140px] py-2.5 text-[11px] font-black uppercase tracking-widest transition-colors duration-300">
+                  <span className={viewMode === 'flashcards' ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"}>Flashcards</span>
+                  <kbd className="absolute -bottom-10 left-1/2 -translate-x-1/2 flex items-center justify-center px-2 py-1 rounded border border-border bg-card text-[10px] opacity-0 group-hover:opacity-100 transition-all text-foreground shadow-xl pointer-events-none z-[100]">F</kbd>
                 </button>
              </div>
           </div>
           
-          {/* 🔍 SLIDING SEARCH BAR */}
           <div className={`w-full max-w-4xl relative group hidden md:block h-10 lg:h-11 shrink transition-all duration-500 ease-in-out ${viewMode === 'dictionary' ? 'opacity-100 translate-x-0 scale-100' : 'opacity-0 translate-x-10 scale-95 pointer-events-none'}`}>
              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
              <input ref={searchRef} type="text" placeholder="SEARCH THE VAULT..." className="w-full h-full bg-card border border-border pl-12 pr-16 text-[11px] font-bold uppercase tracking-widest focus:outline-none focus:border-primary/50 transition-all shadow-inner" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
@@ -210,27 +215,27 @@ export default function App() {
              </div>
           </div>
           
-          <div className="flex-1 flex items-center justify-end gap-6 shrink-0 h-10 lg:h-11">
+          <div className="flex-1 flex items-center justify-end gap-6 shrink-0 h-10 lg:h-11 overflow-visible">
             <div onClick={toggleTheme} className="w-16 lg:w-20 h-full bg-card border border-border relative cursor-pointer flex items-center group shrink-0">
               <div className="absolute inset-0 flex justify-between items-center px-2.5 opacity-20"><Sun className="w-3 h-3" /><Moon className="w-3 h-3" /></div>
               <div className={`absolute top-0 h-full w-1/2 bg-primary transition-all duration-200 flex items-center justify-center ${theme === 'dark' ? 'translate-x-full border-l border-white/10' : 'translate-x-0 border-r border-white/10'}`}>
                  {theme === 'dark' ? <Moon className="w-3.5 h-3.5 text-primary-foreground" /> : <Sun className="w-3.5 h-3.5 text-primary-foreground" />}
               </div>
-              <kbd className="hidden lg:inline-flex absolute -bottom-7 left-1/2 -translate-x-1/2 items-center justify-center px-2 py-0.5 rounded border border-border bg-card text-[10px] opacity-0 group-hover:opacity-100 transition-opacity text-foreground">T</kbd>
+              <kbd className="absolute -bottom-10 left-1/2 -translate-x-1/2 items-center justify-center px-2 py-1 rounded border border-border bg-card text-[10px] opacity-0 group-hover:opacity-100 transition-all text-foreground shadow-xl pointer-events-none z-[100]">T</kbd>
             </div>
             {isAdmin && (
-              <button onClick={openModal} className="hidden lg:flex h-full px-8 bg-foreground text-background text-[11px] font-black uppercase tracking-widest hover:bg-primary hover:text-primary-foreground transition-all items-center justify-center shadow-[4px_4px_0px_0px_rgba(255,77,0,0.2)] active:shadow-none active:translate-x-1 active:translate-y-1 shrink-0 relative group">
-                New Entry <kbd className="hidden lg:inline-flex absolute -bottom-7 right-0 items-center justify-center px-2 py-0.5 rounded border border-border bg-card text-[10px] opacity-0 group-hover:opacity-100 transition-opacity text-foreground">N</kbd>
+              <button onClick={openModal} className="hidden lg:flex h-full px-8 bg-foreground text-background text-[11px] font-black uppercase tracking-widest hover:bg-primary hover:text-primary-foreground transition-all items-center justify-center relative group">
+                New Entry <kbd className="absolute -bottom-10 right-0 items-center justify-center px-2 py-1 rounded border border-border bg-card text-[10px] opacity-0 group-hover:opacity-100 transition-all text-foreground shadow-xl pointer-events-none z-[100]">N</kbd>
               </button>
             )}
           </div>
         </div>
       </header>
 
-      {/* 2. MAIN BODY */}
+      {/* MAIN BODY */}
       <div className="flex flex-1 overflow-hidden relative z-10">
         {viewMode === 'dictionary' && (
-          <aside className="w-64 border-r border-border hidden lg:flex flex-col bg-background shrink-0 z-40 relative animate-in fade-in slide-in-from-left-4 duration-500">
+          <aside className="w-64 border-r border-border hidden lg:flex flex-col bg-background shrink-0 z-40 relative">
             <nav className="flex-1 overflow-y-auto px-6 py-8 space-y-1 custom-scrollbar pb-28">
               {glossary.map(cat => (
                 <button key={cat.id} onClick={() => { document.getElementById(cat.id)?.scrollIntoView({ behavior: 'smooth' }); setActiveCategory(cat.id); }} 
@@ -242,7 +247,7 @@ export default function App() {
           </aside>
         )}
 
-        <main className={`flex-1 overflow-y-auto relative scroll-smooth custom-scrollbar transition-all duration-300 ease-out z-10 ${isTransitioning ? 'opacity-0 translate-y-4 scale-[0.98]' : 'opacity-100 translate-y-0 scale-100'}`}>
+        <main ref={mainRef} className={`flex-1 overflow-y-auto relative scroll-smooth custom-scrollbar transition-all duration-300 ease-out z-10 ${isTransitioning ? 'opacity-0 translate-y-4 scale-[0.98]' : 'opacity-100 translate-y-0 scale-100'}`}>
           {viewMode === 'dictionary' ? (
             <div className="max-w-4xl mx-auto px-4 lg:px-10 space-y-20 lg:space-y-32 relative z-10 pb-40 pt-10">
               {filteredData.map(cat => (
@@ -273,9 +278,7 @@ export default function App() {
                     <div className={`relative w-full h-full transition-transform duration-700 preserve-3d ${isFlipped ? '[transform:rotateY(180deg)]' : ''}`}>
                       <div className="absolute inset-0 backface-hidden border border-border bg-background flex flex-col items-center justify-center p-16 shadow-2xl">
                         <h2 className="text-3xl lg:text-5xl font-black tracking-tighter uppercase leading-none">{allTerms[currentCardIndex]?.name}</h2>
-                        <p className="mt-8 text-xs font-black text-primary/60 uppercase tracking-widest animate-pulse">
-                          Tap or <kbd className="mx-1 px-2 py-1 rounded border border-primary/30 bg-primary/10 text-[10px]">Space</kbd> to reveal
-                        </p>
+                        <p className="mt-8 text-xs font-black text-primary/60 uppercase tracking-widest animate-pulse">Tap or <kbd className="mx-1 px-2 py-1 rounded border border-primary/30 bg-primary/10 text-[10px]">Space</kbd> to reveal</p>
                       </div>
                       <div className="absolute inset-0 backface-hidden border-2 border-primary bg-primary text-primary-foreground flex flex-col items-center justify-center p-8 lg:p-16" style={{ transform: 'rotateY(180deg) translateZ(1px)' }}>
                         <p className="text-xl lg:text-2xl font-black italic tracking-tighter mb-8 leading-tight">“{allTerms[currentCardIndex]?.analogy}”</p>
@@ -284,8 +287,8 @@ export default function App() {
                     </div>
                   </div>
                   <div className="flex gap-px bg-border max-w-xs mx-auto p-px shadow-xl">
-                    <button onClick={() => { setIsFlipped(false); setCurrentCardIndex(p => (p - 1 + allTerms.length) % allTerms.length); }} className="flex-1 py-4 bg-background hover:bg-muted text-[11px] font-black uppercase flex items-center justify-center gap-4"><kbd className="px-2 py-1 rounded border border-border bg-card text-[10px] font-bold">←</kbd> Prev</button>
-                    <button onClick={() => { setIsFlipped(false); setCurrentCardIndex(p => (p + 1) % allTerms.length); }} className="flex-1 py-4 bg-background hover:bg-muted text-[11px] font-black uppercase flex items-center justify-center gap-4">Next <kbd className="px-2 py-1 rounded border border-border bg-card text-[10px] font-bold">→</kbd></button>
+                    <button onClick={() => { setIsFlipped(false); setCurrentCardIndex(p => (p - 1 + allTerms.length) % allTerms.length); }} className="flex-1 py-4 bg-background hover:bg-muted text-[11px] font-black uppercase flex items-center justify-center gap-4">Prev</button>
+                    <button onClick={() => { setIsFlipped(false); setCurrentCardIndex(p => (p + 1) % allTerms.length); }} className="flex-1 py-4 bg-background hover:bg-muted text-[11px] font-black uppercase flex items-center justify-center gap-4">Next</button>
                   </div>
                 </div>
             </div>
@@ -293,21 +296,19 @@ export default function App() {
         </main>
       </div>
 
-      {/* 3. WATERMARK */}
+      {/* WATERMARK */}
       <div className="hidden sm:flex fixed bottom-6 right-6 lg:right-10 z-[60] group flex-col items-end drop-shadow-2xl">
         <div className="relative bg-card border border-border p-4 transition-all duration-500 w-auto max-w-[240px] group-hover:max-w-sm hover:border-primary/50 shadow-[0_0_15px_rgba(0,0,0,0.5)] group-hover:-translate-y-1 overflow-hidden">
           <span className="absolute -top-1 -right-1 flex h-3 w-3 group-hover:hidden"><span className="animate-ping absolute h-full w-full rounded-full bg-primary opacity-75"></span><span className="relative h-3 w-3 rounded-full bg-primary"></span></span>
           <div className="flex items-center gap-3 whitespace-nowrap"><AlertTriangle className="w-5 h-5 text-primary animate-pulse" /><span className="text-[11px] font-black uppercase tracking-widest text-primary">CAUTION: Designer coding</span></div>
           <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-500">
-            <div className="overflow-hidden">
-              <p className="mt-4 text-[11px] text-muted-foreground leading-relaxed font-sans">I built this to finally understand the devs. 👾 Raised my first PR, learned a ton, and only cried twice. 😭 Let's connect! 🤝</p>
-              <a href="https://www.linkedin.com/in/jainulabudeen" target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-1.5 text-[11px] font-black text-primary hover:text-foreground border-b border-primary/30 pb-0.5">LinkedIn↗</a>
-            </div>
+            <div className="overflow-hidden"><p className="mt-4 text-[11px] text-muted-foreground leading-relaxed font-sans">I built this to finally understand the devs. 👾 Raised my first PR, learned a ton, and only cried twice. 😭 Let's connect! 🤝</p>
+            <a href="https://www.linkedin.com/in/jainulabudeen" target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-1.5 text-[11px] font-black text-primary hover:text-foreground border-b border-primary/30 pb-0.5">LinkedIn↗</a></div>
           </div>
         </div>
       </div>
 
-      {/* 4. MODAL */}
+      {/* MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setIsModalOpen(false)}>
           <div className="w-full max-w-md bg-background border border-primary p-8 lg:p-10 shadow-2xl relative max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -335,7 +336,7 @@ export default function App() {
                       <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase">Alignment</label><select className="w-full bg-card border border-border p-3.5 text-[11px] font-bold uppercase outline-none focus:border-primary appearance-none cursor-pointer" value={newTerm.category} onChange={e => setNewTerm({...newTerm, category: e.target.value})}>{baseCategories.map(cat => (<option key={cat.id} value={cat.id}>{cat.title}</option>))}</select></div>
                       <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase">Term</label><input className="w-full bg-card border border-border p-3.5 text-[11px] font-black uppercase outline-none focus:border-primary" value={newTerm.name} onChange={e => setNewTerm({...newTerm, name: e.target.value})} /></div>
                     </div>
-                    <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase">Analogy</label><input className="w-full bg-card border border-border p-3.5 text-[11px] font-black outline-none focus:border-primary" value={newTerm.analogy} onChange={e => setNewTerm({...newTerm, analogy: e.target.value})} /></div>
+                    <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase">Designer Analogy</label><input className="w-full bg-card border border-border p-3.5 text-[11px] font-black outline-none focus:border-primary" value={newTerm.analogy} onChange={e => setNewTerm({...newTerm, analogy: e.target.value})} /></div>
                     <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase">Explanation</label><textarea className="w-full bg-card border border-border p-3.5 text-[11px] font-sans h-24 outline-none focus:border-primary resize-none" value={newTerm.description} onChange={e => setNewTerm({...newTerm, description: e.target.value})} /></div>
                     <button type="submit" className="w-full py-5 px-8 mt-2 bg-primary text-primary-foreground text-[11px] font-black uppercase hover:opacity-90 transition-all shadow-[4px_4px_0px_rgba(255,77,0,0.2)] active:translate-y-1 flex items-center justify-between group">
                       <div className="flex items-center gap-3"><Check className="w-5 h-5" /> Authorize Upload</div>

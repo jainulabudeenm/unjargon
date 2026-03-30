@@ -22,6 +22,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "unjargon.",
   description: "Demystifying tech terminology for designers through analogies. Built by Zain.",
+  icons: {
+    icon: "/favicon.ico", // 👈 This line adds your copper lock-hole icon
+  },
   openGraph: {
     title: "unjargon.",
     description: "The designer's secret weapon for understanding developer-speak.",
@@ -42,8 +45,8 @@ export default function RootLayout({
         "antialiased", 
         geistSans.variable, 
         geistMono.variable, 
-        jetbrainsMono.variable, // Ensuring this variable is available
-        "font-mono" // Setting the global default to your brand font
+        jetbrainsMono.variable,
+        "font-mono"
       )}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
