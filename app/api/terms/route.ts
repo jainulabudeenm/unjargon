@@ -37,3 +37,33 @@ export async function POST(req: Request) {
 
   return Response.json({ term: data?.[0] ?? null }, { status: 201 });
 }
+
+export async function DELETE(req: Request) {
+  const denied = requireAdmin(req);
+  if (denied) return denied;
+
+  const id = new URL(req.url).searchParams.get('id');
+  // Ids are uuids. Validating the shape keeps a malformed value from reaching
+  // PostgREST as a filter it might interpret more broadly than intended.
+  if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return Response.json({ error: 'Invalid id' }, { status: 400 });
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) {
+    return Response.json({ error: 'Server is not configured for writes' }, { status: 500 });
+  }
+
+  const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
+  const { data, error } = await supabase.from('terms').delete().eq('id', id).select();
+
+  if (error) {
+    console.error('Term delete failed:', error.message);
+    return Response.json({ error: 'Delete failed' }, { status: 500 });
+  }
+  // select() returns the removed rows, so an empty array means nothing matched.
+  if (!data?.length) return Response.json({ error: 'Not found' }, { status: 404 });
+
+  return Response.json({ deleted: data[0].id });
+}

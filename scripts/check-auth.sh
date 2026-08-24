@@ -29,12 +29,22 @@ post() {
     -H 'Content-Type: application/json' "$@" -d "$body"
 }
 
+del() {
+  local query="$1"
+  shift
+  curl -s -o /dev/null -w '%{http_code}' -X DELETE "$BASE/api/terms$query" "$@"
+}
+
 check "terms rejects no key"        401 "$(post /api/terms "$PAYLOAD")"
 check "terms rejects wrong key"     401 "$(post /api/terms "$PAYLOAD" -H 'x-admin-key: wrong')"
 check "terms rejects empty payload" 400 "$(post /api/terms '{"name":""}' -H "x-admin-key: $KEY")"
 check "terms rejects bad category"  400 "$(post /api/terms '{"name":"X","analogy":"a","description":"b","category_id":"Not Kebab!"}' -H "x-admin-key: $KEY")"
 check "generate rejects no key"     401 "$(post /api/generate '{"term":"webhook","existingCategories":[]}')"
 check "generate rejects wrong key"  401 "$(post /api/generate '{"term":"webhook","existingCategories":[]}' -H 'x-admin-key: wrong')"
+check "delete rejects no key"       401 "$(del '?id=00000000-0000-0000-0000-000000000000')"
+check "delete rejects wrong key"    401 "$(del '?id=00000000-0000-0000-0000-000000000000' -H 'x-admin-key: wrong')"
+check "delete rejects missing id"   400 "$(del '' -H "x-admin-key: $KEY")"
+check "delete rejects malformed id" 400 "$(del '?id=all' -H "x-admin-key: $KEY")"
 
 echo
 if [ "$fails" -eq 0 ]; then

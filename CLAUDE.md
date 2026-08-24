@@ -40,6 +40,10 @@ App Router file-system routing convention.
   (`dictionary` and `flashcards`), search, theme, the keyboard shortcut handler,
   the editor gate, and the add-term modal. The ten category ids are defined here
   in `baseCategories` and are the source of truth the API route is handed.
+- `app/api/terms/route.ts` owns the writes. `POST` validates with zod and
+  inserts; `DELETE` takes an `id` query param, checks it is a uuid, and removes
+  that row. Both use the service role, so both bypass RLS and both are gated on
+  `ADMIN_KEY`. `DELETE` uses `.select()` and treats an empty result as a 404.
 - `app/api/generate/route.ts` takes a term plus the current category list and
   calls Gemini 2.5 Flash through the Vercel AI SDK with a zod schema, returning
   an analogy, a description, and a category id. If nothing fits it coins a new
@@ -59,7 +63,8 @@ anon key because the glossary is public. Writes do not: they go through
 ## Authorisation
 
 `lib/admin-auth.ts` is the only thing that decides whether a write is allowed.
-Both write routes call `requireAdmin(req)`, which compares the `x-admin-key`
+Every write route calls `requireAdmin(req)` first: `POST /api/generate`,
+`POST /api/terms` and `DELETE /api/terms`. It which compares the `x-admin-key`
 header against `ADMIN_KEY` using a timing-safe digest compare and fails closed
 when the variable is unset.
 

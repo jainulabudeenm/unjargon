@@ -14,6 +14,13 @@ Most explanations of dev tooling assume you already know the thing. A designer w
 
 **Flashcards.** The same glossary as a deck. Front is the term, back is the analogy and the explanation. For when you want to actually retain it rather than look it up again next week.
 
+## Editing
+
+Press `⌘⇧A` and enter the admin key to reveal the editor. That only reveals the
+UI: every write is authorised server side, so revealing it grants nothing on its
+own. In editor mode each entry gains a delete control, which takes two clicks
+rather than a browser confirm dialog so the entry stays visible while you decide.
+
 ## Keyboard
 
 Built to be driven without a mouse.
@@ -70,6 +77,9 @@ create policy "public read" on terms
 ```
 
 With RLS on and only a select policy defined, the anon key can read and cannot insert, update or delete. The service role bypasses RLS, which is why the server route still works.
+
+Writes go through `POST /api/terms`, deletes through `DELETE /api/terms?id=<uuid>`,
+and both check the admin key before touching the database.
 
 To check the auth paths after changing them:
 

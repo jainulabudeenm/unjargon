@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { 
-  Search, Menu, Plus, X, Check, Sparkles, Loader2, Sun, Moon, AlertTriangle 
+  Search, Menu, Plus, X, Check, Sparkles, Loader2, Sun, Moon, AlertTriangle, Trash2 
 } from 'lucide-react';
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL || "", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "");
@@ -38,6 +38,8 @@ export default function App() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminKey, setAdminKey] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalStep, setModalStep] = useState<'input' | 'generated' | 'success'>('input');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -196,6 +198,26 @@ export default function App() {
     setTimeout(() => { setIsModalOpen(false); window.location.reload(); }, 1500);
   };
 
+  // Deleting is two clicks rather than a window.confirm: a native dialog blocks
+  // the page, and an inline confirm keeps the term you are about to remove visible.
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try {
+      const response = await fetch(`/api/terms?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-key': adminKey ?? '' }
+      });
+      if (!response.ok) {
+        alert(response.status === 401 ? "Key rejected." : "Delete failed.");
+        return;
+      }
+      setGlossary(prev => prev.map(c => ({ ...c, terms: c.terms.filter((t: any) => t.id !== id) })));
+      setPendingDelete(null);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background font-mono text-foreground overflow-hidden relative selection:bg-primary/30">
       <div className="interactive-grid pointer-events-none z-0" />
@@ -281,7 +303,29 @@ export default function App() {
                     {cat.terms.map((term, idx) => (
                       <article key={term.id} className={`relative p-8 lg:p-10 group transition-all hover:bg-primary/[0.02] bg-background ${idx !== cat.terms.length -1 ? 'border-b border-border' : ''}`}>
                         <div className="absolute left-0 top-0 w-1.5 h-0 bg-primary group-hover:h-full transition-all duration-500"></div>
-                        <h3 className="text-2xl font-black mb-6 tracking-tighter uppercase leading-none">{term.name}</h3>
+                        {isAdmin && (
+                          <div className="absolute top-6 right-6 flex items-center gap-2 z-10">
+                            {pendingDelete === term.id ? (
+                              <>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hidden sm:inline">Delete?</span>
+                                <button onClick={() => handleDelete(term.id)} disabled={deletingId === term.id}
+                                  className="px-3 py-1.5 bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
+                                  {deletingId === term.id ? 'Deleting' : 'Confirm'}
+                                </button>
+                                <button onClick={() => setPendingDelete(null)}
+                                  className="px-3 py-1.5 border border-border text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground">
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <button onClick={() => setPendingDelete(term.id)} aria-label={`Delete ${term.name}`}
+                                className="p-2 text-muted-foreground hover:text-primary opacity-60 hover:opacity-100 transition-opacity">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        <h3 className="text-2xl font-black mb-6 tracking-tighter uppercase leading-none pr-28">{term.name}</h3>
                         <div className="mb-6">
                            <p className="text-[11px] font-black text-primary uppercase tracking-widest mb-3 opacity-60">Analogy</p>
                            <p className="text-xl font-black text-foreground italic border-l-4 border-primary pl-6 leading-tight">“{term.analogy}”</p>
