@@ -51,17 +51,38 @@ Then set these in `.env.local`:
 ```
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
-NEXT_PUBLIC_ADMIN_KEY=
 GOOGLE_GENERATIVE_AI_API_KEY=
+ADMIN_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 ```
+
+The last two have no `NEXT_PUBLIC_` prefix on purpose. That prefix inlines a value into the browser bundle, so anything used to authorise a write has to stay without it.
 
 Storage is a single Supabase table, `terms`, with columns `name`, `analogy`, `description`, and `category_id`. The category ids are listed in `app/page.tsx`.
 
+Reads go straight from the browser with the anon key, since the glossary is public. Writes go through `POST /api/terms`, which checks `ADMIN_KEY` server side and then inserts with the service role. That means the table itself should refuse anon writes:
+
+```sql
+alter table terms enable row level security;
+
+create policy "public read" on terms
+  for select using (true);
+```
+
+With RLS on and only a select policy defined, the anon key can read and cannot insert, update or delete. The service role bypasses RLS, which is why the server route still works.
+
+To check the auth paths after changing them:
+
+```bash
+ADMIN_KEY=test-key npm run dev
+./scripts/check-auth.sh http://localhost:3000 test-key
+```
+
 ## Known limitations
 
-- The editor gate is client side, so write access needs to be enforced by Supabase row level security rather than by the app. Moving the insert behind a server route is the fix.
-- `/api/generate` has no rate limiting, which matters because it spends tokens.
-- No tests yet.
+- No test runner. `scripts/check-auth.sh` covers the auth paths on the two write routes and nothing else, so the keyboard handler and the category matching have no regression net.
+- `/api/generate` is behind the admin key rather than a rate limiter. That stops anonymous token burn, but an authorised editor can still call it in a loop.
+- The category list lives in `app/page.tsx` rather than the database, so a category coined by the model is stored on the term without being added to the sidebar until the array is updated by hand.
 
 ## License
 

@@ -52,17 +52,45 @@ App Router file-system routing convention.
 - `app/globals.css` is the global styles entry point for Tailwind v4.
 
 Storage is a single Supabase table, `terms`, with `name`, `analogy`,
-`description` and `category_id`. It is read and written from the browser with
-the anon key.
+`description` and `category_id`. Reads come straight from the browser with the
+anon key because the glossary is public. Writes do not: they go through
+`POST /api/terms`.
+
+## Authorisation
+
+`lib/admin-auth.ts` is the only thing that decides whether a write is allowed.
+Both write routes call `requireAdmin(req)`, which compares the `x-admin-key`
+header against `ADMIN_KEY` using a timing-safe digest compare and fails closed
+when the variable is unset.
+
+Rules to keep:
+
+- **Never give the admin key a `NEXT_PUBLIC_` prefix.** That prefix inlines the
+  value into the browser bundle, which is exactly what made the old gate
+  cosmetic. Same for `SUPABASE_SERVICE_ROLE_KEY`.
+- **Never import `lib/admin-auth.ts` into a client component.** It is server only.
+- `isAdmin` in `app/page.tsx` reveals the modal and nothing more. Treat it as
+  cosmetic and never as permission. The server re-checks every write.
+- The insert uses the service role so the `terms` table can enable RLS with a
+  select-only policy for anon. If writes start failing with a permissions error,
+  check `SUPABASE_SERVICE_ROLE_KEY` before touching the policy.
+
+After changing anything on those paths:
+
+```bash
+ADMIN_KEY=test-key npm run dev
+./scripts/check-auth.sh http://localhost:3000 test-key
+```
 
 ## Known weak spots
 
 Do not treat these as done.
 
-- The editor gate is client side. `NEXT_PUBLIC_ADMIN_KEY` ships in the bundle,
-  and `handleUpload` does not check `isAdmin` before inserting, so write
-  protection rests entirely on Supabase row level security. Moving the insert
-  behind a server route is the fix.
-- `/api/generate` has no auth and no rate limiting, and every call spends tokens.
-- No test runner, so there is no regression net on the shortcut handler or the
-  category-matching logic.
+- No test runner. `scripts/check-auth.sh` covers the auth paths on the two write
+  routes and nothing else, so the shortcut handler and the category-matching
+  logic have no regression net.
+- `/api/generate` is gated by the admin key rather than rate limited, so an
+  authorised editor can still burn tokens in a loop.
+- `baseCategories` lives in `app/page.tsx`, not the database. A category the
+  model coins is saved on the term but does not appear in the sidebar until that
+  array is updated by hand.

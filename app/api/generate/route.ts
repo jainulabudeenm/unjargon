@@ -1,8 +1,13 @@
 import { generateObject } from 'ai';
 import { google } from '@ai-sdk/google';
 import { z } from 'zod';
+import { requireAdmin } from '@/lib/admin-auth';
 
 export async function POST(req: Request) {
+  // This route spends tokens on every call, so it is not open to the internet.
+  const denied = requireAdmin(req);
+  if (denied) return denied;
+
   try {
     // 1. We now accept the term AND the list of existing categories from the frontend
     const { term, existingCategories } = await req.json();

@@ -37,6 +37,7 @@ export default function App() {
   const [isFlipped, setIsFlipped] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminKey, setAdminKey] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalStep, setModalStep] = useState<'input' | 'generated' | 'success'>('input');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -104,7 +105,10 @@ export default function App() {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
         const pass = window.prompt("ENTER ARCHITECT KEY:");
-        if (pass === process.env.NEXT_PUBLIC_ADMIN_KEY) setIsAdmin(true);
+        // Cosmetic unlock only. Nothing is verified here and the key is not in
+        // the bundle: every write is authorised server side against ADMIN_KEY,
+        // so revealing this modal grants nothing on its own.
+        if (pass) { setAdminKey(pass); setIsAdmin(true); }
         return;
       }
       if (e.key === 'Escape' && isModalOpen) { setIsModalOpen(false); return; }
@@ -154,9 +158,10 @@ export default function App() {
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey ?? '' },
         body: JSON.stringify({ term: newTerm.name, existingCategories: baseCategories.map(c => ({ id: c.id, title: c.title })) })
       });
+      if (response.status === 401) { alert("Key rejected."); return; }
       const data = await response.json();
       setNewTerm(prev => ({ ...prev, analogy: data.analogy || "", description: data.description || "", category: data.categoryId || prev.category }));
       setModalStep('generated'); 
@@ -165,13 +170,22 @@ export default function App() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data } = await supabase.from('terms').insert([{ 
-      name: newTerm.name, analogy: newTerm.analogy, description: newTerm.description, category_id: newTerm.category 
-    }]).select();
-    if (data) {
-      setModalStep('success'); 
-      setTimeout(() => { setIsModalOpen(false); window.location.reload(); }, 1500); 
+    // Goes through /api/terms rather than the browser's anon client, so the
+    // terms table can refuse anon writes at the RLS layer.
+    const response = await fetch('/api/terms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey ?? '' },
+      body: JSON.stringify({
+        name: newTerm.name, analogy: newTerm.analogy,
+        description: newTerm.description, category_id: newTerm.category
+      })
+    });
+    if (!response.ok) {
+      alert(response.status === 401 ? "Key rejected." : "Upload failed.");
+      return;
     }
+    setModalStep('success');
+    setTimeout(() => { setIsModalOpen(false); window.location.reload(); }, 1500);
   };
 
   return (
