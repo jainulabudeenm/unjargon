@@ -161,7 +161,15 @@ export default function App() {
         headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey ?? '' },
         body: JSON.stringify({ term: newTerm.name, existingCategories: baseCategories.map(c => ({ id: c.id, title: c.title })) })
       });
-      if (response.status === 401) { alert("Key rejected."); return; }
+      // Check the status before reading fields. Without this a failed call
+      // lands as blank inputs on step 2, which looks like the model returned
+      // nothing rather than like an error.
+      if (!response.ok) {
+        alert(response.status === 401
+          ? "Key rejected."
+          : "Generation failed. The AI API key is probably invalid or out of quota.");
+        return;
+      }
       const data = await response.json();
       setNewTerm(prev => ({ ...prev, analogy: data.analogy || "", description: data.description || "", category: data.categoryId || prev.category }));
       setModalStep('generated'); 
