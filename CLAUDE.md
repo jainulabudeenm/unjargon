@@ -91,6 +91,13 @@ ADMIN_KEY=test-key npm run dev
 
 Do not treat these as done.
 
+- **`.env.local` points at the production Supabase project. There is no separate
+  dev database.** So `npm run dev` is not a sandbox: adding, editing, or deleting
+  a term locally writes to the live glossary that visitors read. Before any local
+  work that touches a write path, either accept that the change is real or point
+  `NEXT_PUBLIC_SUPABASE_URL` at a scratch project first. Treat a local delete as
+  a production delete.
+
 - No test runner. `scripts/check-auth.sh` covers the auth paths on the two write
   routes and nothing else, so the shortcut handler and the category-matching
   logic have no regression net.
